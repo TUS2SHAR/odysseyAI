@@ -1,11 +1,11 @@
-import { ItineraryPlanSchema, type ItineraryPlan, type AIErrorInfo } from '../types/itinerary';
+import { StudySessionPlanSchema, type StudySessionPlan, type AIErrorInfo } from '../types/schema';
 
 /**
- * Extracts and cleans raw JSON text from an LLM response string.
- * Handles common LLM syntax flaws like markdown backticks, trailing commas,
- * leading/trailing explanations, or missing closing brackets.
+ * Extracts raw JSON text from LLM response.
+ * Strips markdown wrappers (```json ... ```), removes trailing commas,
+ * and locates bracket spans ({...}).
  */
-export function extractJSONFromResponse(text: string): string {
+export function extractJSON(text: string): string {
   if (!text || typeof text !== 'string') {
     throw new Error('Empty or invalid response received from AI model.');
   }
@@ -29,28 +29,28 @@ export function extractJSONFromResponse(text: string): string {
     throw new Error('No valid JSON object boundaries `{}` found in model output.');
   }
 
-  // 3. Fix common JSON syntax errors from LLMs (trailing commas)
+  // 3. Fix common trailing commas before brackets
   cleaned = cleaned.replace(/,\s*([\}\]])/g, '$1');
 
   return cleaned;
 }
 
 /**
- * Parses raw LLM output into a strongly-typed ItineraryPlan with Zod validation.
+ * Parses and validates raw AI model response using Zod.
  * Throws structured AIErrorInfo on failure.
  */
-export function parseAndValidateItinerary(rawText: string): ItineraryPlan {
+export function parseAndValidateStudyPlan(rawText: string): StudySessionPlan {
   let jsonString: string;
-  
+
   try {
-    jsonString = extractJSONFromResponse(rawText);
+    jsonString = extractJSON(rawText);
   } catch (err: any) {
     const error: AIErrorInfo = {
       type: 'MALFORMED_JSON',
       message: err.message || 'Failed to locate valid JSON structure in response.',
       rawResponse: rawText,
       canRetry: true,
-      suggestedAction: 'Try re-submitting with a more explicit prompt or clear location.',
+      suggestedAction: 'Try re-submitting your notes or using a sample topic.',
     };
     throw error;
   }
@@ -64,13 +64,13 @@ export function parseAndValidateItinerary(rawText: string): ItineraryPlan {
       message: `JSON Syntax Error: ${err.message}`,
       rawResponse: rawText,
       canRetry: true,
-      suggestedAction: 'The AI generated invalid JSON syntax. Retrying usually fixes this.',
+      suggestedAction: 'The AI generated invalid syntax. Retrying usually resolves this.',
     };
     throw error;
   }
 
-  // Validate with Zod
-  const validationResult = ItineraryPlanSchema.safeParse(parsedData);
+  // Zod schema validation (including .refine() check)
+  const validationResult = StudySessionPlanSchema.safeParse(parsedData);
   if (!validationResult.success) {
     const issues = validationResult.error.issues
       .map(i => `${i.path.join('.')}: ${i.message}`)
@@ -78,10 +78,10 @@ export function parseAndValidateItinerary(rawText: string): ItineraryPlan {
 
     const error: AIErrorInfo = {
       type: 'SCHEMA_MISMATCH',
-      message: `Structured output validation failed: ${issues}`,
+      message: `Zod validation error: ${issues}`,
       rawResponse: jsonString,
       canRetry: true,
-      suggestedAction: 'The model omitted required fields or formatted properties incorrectly.',
+      suggestedAction: 'The model omitted required fields or correctIndex was out of bounds.',
     };
     throw error;
   }

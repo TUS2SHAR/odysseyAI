@@ -1,12 +1,12 @@
 import React from 'react';
-import { X, Bookmark, Trash2, Calendar, MapPin, ArrowRight } from 'lucide-react';
-import type { SavedSession } from '../types/itinerary';
+import { X, Bookmark, Trash2, Calendar, BookOpen, ArrowRight } from 'lucide-react';
+import type { SavedStudySession } from '../types/schema';
 
 interface SessionDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  sessions: SavedSession[];
-  onSelectSession: (session: SavedSession) => void;
+  sessions: SavedStudySession[];
+  onSelectSession: (session: SavedStudySession) => void;
   onDeleteSession: (id: string) => void;
 }
 
@@ -20,7 +20,7 @@ export const SessionDrawer: React.FC<SessionDrawerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#06080f]/80 backdrop-blur-sm animate-fade-in">
       <div className="w-full max-w-md h-full bg-slate-900 border-l border-slate-800 p-6 flex flex-col justify-between shadow-2xl overflow-y-auto">
         
         {/* Header */}
@@ -31,8 +31,8 @@ export const SessionDrawer: React.FC<SessionDrawerProps> = ({
                 <Bookmark className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">Saved Trip Workspaces</h2>
-                <p className="text-xs text-slate-400">Manage and reload past AI itineraries</p>
+                <h2 className="text-base font-bold text-white">Saved Study Modules</h2>
+                <p className="text-xs text-slate-400">Manage and reload past study sessions</p>
               </div>
             </div>
             <button
@@ -47,9 +47,9 @@ export const SessionDrawer: React.FC<SessionDrawerProps> = ({
           {sessions.length === 0 ? (
             <div className="text-center py-12 space-y-2">
               <Bookmark className="h-8 w-8 text-slate-700 mx-auto" />
-              <p className="text-sm font-semibold text-slate-400">No Saved Sessions Yet</p>
+              <p className="text-sm font-semibold text-slate-400">No Saved Study Sessions Yet</p>
               <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                Generate a trip and it will automatically save to your local session workspace.
+                Generate study notes and they will automatically save to your session store.
               </p>
             </div>
           ) : (
@@ -62,11 +62,11 @@ export const SessionDrawer: React.FC<SessionDrawerProps> = ({
                   <div className="flex justify-between items-start">
                     <div className="space-y-0.5">
                       <h4 className="text-xs font-bold text-white leading-tight">
-                        {session.title}
+                        {session.topic}
                       </h4>
-                      <p className="text-[11px] text-indigo-400 flex items-center space-x-1 font-medium">
-                        <MapPin className="h-3 w-3" />
-                        <span>{session.destination}</span>
+                      <p className="text-[11px] text-sky-400 flex items-center space-x-1 font-medium">
+                        <BookOpen className="h-3 w-3" />
+                        <span>{session.plan.flashcards.length} Cards • {session.plan.quiz.length} Quiz Questions</span>
                       </p>
                     </div>
 
@@ -93,9 +93,9 @@ export const SessionDrawer: React.FC<SessionDrawerProps> = ({
                         onSelectSession(session);
                         onClose();
                       }}
-                      className="flex items-center space-x-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300"
+                      className="flex items-center space-x-1 text-xs font-semibold text-sky-400 hover:text-sky-300"
                     >
-                      <span>Load Trip</span>
+                      <span>Load Session</span>
                       <ArrowRight className="h-3 w-3" />
                     </button>
                   </div>

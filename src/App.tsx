@@ -1,36 +1,29 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { 
-  ItineraryPlan, ViewBlockType, AIErrorInfo, SavedSession, DayPlan, PackingCategory 
-} from './types/itinerary';
-import { generateItineraryPlan, refineItineraryPlan, type GenerateOptions, getFallbackPlan } from './services/aiService';
+import { useState, useEffect } from 'react';
+import type { StudySessionPlan, AIErrorInfo, SavedStudySession } from './types/schema';
+import { generateStudyPlan, type GenerateStudyOptions, getFallbackStudyPlan } from './services/api';
 import { getSavedSessions, saveSession, deleteSession } from './utils/sessionStore';
-import { exportPlanAsJSON, exportPlanAsMarkdown } from './utils/exportUtils';
 
 import { Header } from './components/Header';
-import { TripInputForm } from './components/TripInputForm';
-import { RefinementBar } from './components/RefinementBar';
-import { ErrorAlert } from './components/ErrorAlert';
+import { NotesInputForm } from './components/NotesInputForm';
+import { FlashcardDeck } from './components/FlashcardDeck';
+import { QuizEngine } from './components/QuizEngine';
+import { FallbackInspector } from './components/FallbackInspector';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { SessionDrawer } from './components/SessionDrawer';
+import { Globe3D } from './components/Globe3D';
 
-import { TimelineBlock } from './components/blocks/TimelineBlock';
-import { BudgetBlock } from './components/blocks/BudgetBlock';
-import { ChecklistBlock } from './components/blocks/ChecklistBlock';
-import { HighlightsBlock } from './components/blocks/HighlightsBlock';
-
-import { MapPin, Calendar, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen, Layers, HelpCircle, Sparkles } from 'lucide-react';
 
 export default function App() {
-  const [plan, setPlan] = useState<ItineraryPlan | null>(null);
-  const [originalPrompt, setOriginalPrompt] = useState<string>('');
+  const [plan, setPlan] = useState<StudySessionPlan | null>(null);
+  const [originalNotes, setOriginalNotes] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isRefining, setIsRefining] = useState<boolean>(false);
   const [error, setError] = useState<AIErrorInfo | null>(null);
-  const [activeViewBlock, setActiveViewBlock] = useState<ViewBlockType>('all');
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'flashcards' | 'quiz'>('all');
 
   // Saved Sessions Drawer State
-  const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
+  const [savedSessions, setSavedSessions] = useState<SavedStudySession[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   // Load saved sessions on mount
@@ -38,35 +31,20 @@ export default function App() {
     setSavedSessions(getSavedSessions());
   }, []);
 
-  // Calculate live sum of all stops cost across days
-  const actualCalculatedTotalCost = useMemo(() => {
-    if (!plan) return 0;
-    let sum = 0;
-    plan.days.forEach((day) => {
-      day.stops.forEach((stop) => {
-        if (stop.estimatedCost && typeof stop.estimatedCost === 'number') {
-          sum += stop.estimatedCost;
-        }
-      });
-    });
-    return sum;
-  }, [plan]);
-
-  // Handle new plan generation
-  const handleGenerate = async (options: GenerateOptions) => {
+  // Handle study module generation
+  const handleGenerate = async (options: GenerateStudyOptions) => {
     setIsLoading(true);
     setError(null);
-    setOriginalPrompt(options.prompt);
+    setOriginalNotes(options.prompt);
 
     try {
-      const res = await generateItineraryPlan(options);
+      const res = await generateStudyPlan(options);
       setPlan(res.plan);
       setIsMockMode(res.isMock);
 
-      // Auto-save session
       saveSession(res.plan, options.prompt);
       setSavedSessions(getSavedSessions());
-      setActiveViewBlock('all');
+      setActiveTab('all');
     } catch (err: any) {
       if (err.type !== 'CANCELLED') {
         setError(err);
@@ -76,62 +54,22 @@ export default function App() {
     }
   };
 
-  // Handle refinement prompt loop
-  const handleRefine = async (instruction: string) => {
-    if (!plan) return;
-    setIsRefining(true);
-    setError(null);
-
-    try {
-      const res = await refineItineraryPlan(plan, instruction);
-      setPlan(res.plan);
-      setIsMockMode(res.isMock);
-
-      saveSession(res.plan, originalPrompt);
-      setSavedSessions(getSavedSessions());
-    } catch (err: any) {
-      if (err.type !== 'CANCELLED') {
-        setError(err);
-      }
-    } finally {
-      setIsRefining(false);
-    }
-  };
-
-  // Update days when stops reordered/edited/deleted
-  const handleUpdateDays = (updatedDays: DayPlan[]) => {
-    if (!plan) return;
-    const updatedPlan: ItineraryPlan = { ...plan, days: updatedDays };
-    setPlan(updatedPlan);
-    saveSession(updatedPlan, originalPrompt);
-    setSavedSessions(getSavedSessions());
-  };
-
-  // Update packing list categories
-  const handleUpdateCategories = (updatedCategories: PackingCategory[]) => {
-    if (!plan) return;
-    const updatedPlan: ItineraryPlan = { ...plan, packingChecklist: updatedCategories };
-    setPlan(updatedPlan);
-    saveSession(updatedPlan, originalPrompt);
-    setSavedSessions(getSavedSessions());
-  };
-
   // Fallback trigger if model fails
   const handleUseOfflineDemo = () => {
-    const demo = getFallbackPlan(originalPrompt || 'Paris');
+    const demo = getFallbackStudyPlan(originalNotes || 'Quantum Physics');
     setPlan(demo);
     setIsMockMode(true);
     setError(null);
-    saveSession(demo, originalPrompt || 'Paris Demo');
+    saveSession(demo, originalNotes || 'Quantum Physics');
     setSavedSessions(getSavedSessions());
   };
 
   // Session drawer actions
-  const handleSelectSession = (session: SavedSession) => {
+  const handleSelectSession = (session: SavedStudySession) => {
     setPlan(session.plan);
-    setOriginalPrompt(session.originalPrompt);
+    setOriginalNotes(session.originalNotes);
     setError(null);
-    setActiveViewBlock('all');
+    setActiveTab('all');
   };
 
   const handleDeleteSession = (id: string) => {
@@ -140,43 +78,39 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col bg-gradient-glow font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="relative min-h-screen bg-[#06080f] text-slate-100 flex flex-col font-sans selection:bg-sky-500 selection:text-white overflow-x-hidden">
       
-      {/* App Header */}
+      {/* App Header (Z-Index 30) */}
       <Header
-        activeViewBlock={activeViewBlock}
-        onSelectViewBlock={setActiveViewBlock}
         hasPlan={!!plan}
-        onNewPlan={() => {
+        onNewSession={() => {
           setPlan(null);
           setError(null);
         }}
         onOpenSavedSessions={() => setIsDrawerOpen(true)}
         savedCount={savedSessions.length}
-        onExportJSON={() => plan && exportPlanAsJSON(plan)}
-        onExportMarkdown={() => plan && exportPlanAsMarkdown(plan)}
         isMock={isMockMode}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 space-y-8">
+      {/* Main Content Workspace (Z-Index 10) */}
+      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 space-y-8">
         
-        {/* Error State Banner */}
+        {/* Error Fallback Inspector Banner */}
         {error && (
-          <ErrorAlert
+          <FallbackInspector
             error={error}
-            onRetry={() => originalPrompt && handleGenerate({ prompt: originalPrompt })}
+            onRetry={() => originalNotes && handleGenerate({ prompt: originalNotes })}
             onUseFallback={handleUseOfflineDemo}
           />
         )}
 
-        {/* Loading State */}
+        {/* Telemetry Loading Skeleton */}
         {isLoading && <LoadingSkeleton />}
 
-        {/* Input Form State (when no plan loaded or new plan requested) */}
+        {/* Input Form & 3D Holographic Globe Hero */}
         {!plan && !isLoading && (
-          <div className="py-6 sm:py-12">
-            <TripInputForm onGenerate={handleGenerate} isLoading={isLoading} />
+          <div className="py-4 space-y-6">
+            <NotesInputForm onGenerate={handleGenerate} isLoading={isLoading} />
           </div>
         )}
 
@@ -184,82 +118,94 @@ export default function App() {
         {plan && !isLoading && (
           <div className="space-y-6 animate-fade-in">
             
-            {/* Trip Plan Header Banner */}
-            <div className="glass-card rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
+            {/* Topic Header Banner */}
+            <div className="glass-card rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4 shadow-2xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
                 
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
-                      {plan.travelerStyle || 'Custom Trip'}
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
+                      Study Module
                     </span>
                     <span className="text-[11px] font-semibold text-slate-400">
-                      Pace: <strong className="text-slate-200 capitalize">{plan.pace}</strong>
+                      {plan.flashcards.length} Cards • {plan.quiz.length} Quiz Questions
                     </span>
                   </div>
 
                   <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                    {plan.title}
+                    {plan.topic}
                   </h1>
 
                   <p className="text-xs sm:text-sm text-slate-300 flex items-center space-x-2 pt-0.5">
-                    <MapPin className="h-4 w-4 text-indigo-400 shrink-0" />
-                    <span>{plan.destination}</span>
-                    <span className="text-slate-600">•</span>
-                    <Calendar className="h-4 w-4 text-pink-400 shrink-0" />
-                    <span>{plan.durationDays} Days</span>
+                    <BookOpen className="h-4 w-4 text-sky-400 shrink-0" />
+                    <span>{plan.summary}</span>
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setPlan(null)}
-                  className="self-start sm:self-center flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 border border-slate-800 transition-all"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Change Prompt</span>
-                </button>
+                <div className="flex items-center space-x-2 self-start sm:self-center">
+                  <button
+                    onClick={() => setPlan(null)}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 border border-slate-800 transition-all"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    <span>Change Notes</span>
+                  </button>
+                </div>
 
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed italic">
-                "{plan.summary}"
-              </p>
+              {/* View Tab Switcher Pills */}
+              <div className="flex items-center space-x-2 pt-1">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    activeTab === 'all'
+                      ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  All Components
+                </button>
+                <button
+                  onClick={() => setActiveTab('flashcards')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 ${
+                    activeTab === 'flashcards'
+                      ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>3D Flashcards ({plan.flashcards.length})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('quiz')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 ${
+                    activeTab === 'quiz'
+                      ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-md'
+                      : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  <span>Quiz Engine ({plan.quiz.length})</span>
+                </button>
+              </div>
+
             </div>
 
-            {/* Refinement Prompt Loop Bar */}
-            <RefinementBar onRefine={handleRefine} isRefining={isRefining} />
+            {/* 3D Holographic Globe Component */}
+            <Globe3D onSelectPrompt={(p) => setOriginalNotes(p)} />
 
-            {/* Interactive Data Block Displays */}
+            {/* Interactive Components Workspace */}
             <div className="space-y-8">
               
-              {/* Timeline Block */}
-              {(activeViewBlock === 'all' || activeViewBlock === 'timeline') && (
-                <TimelineBlock
-                  days={plan.days}
-                  currencySymbol={plan.budget.currencySymbol || '$'}
-                  onUpdateDays={handleUpdateDays}
-                />
+              {/* 3D Flashcard Deck */}
+              {(activeTab === 'all' || activeTab === 'flashcards') && (
+                <FlashcardDeck cards={plan.flashcards} />
               )}
 
-              {/* Budget Chart Block */}
-              {(activeViewBlock === 'all' || activeViewBlock === 'budget') && (
-                <BudgetBlock
-                  budget={plan.budget}
-                  actualCalculatedTotal={actualCalculatedTotalCost}
-                />
-              )}
-
-              {/* Packing Checklist Block */}
-              {(activeViewBlock === 'all' || activeViewBlock === 'checklist') && (
-                <ChecklistBlock
-                  categories={plan.packingChecklist}
-                  onUpdateCategories={handleUpdateCategories}
-                />
-              )}
-
-              {/* Highlights & Insights Block */}
-              {(activeViewBlock === 'all' || activeViewBlock === 'highlights') && (
-                <HighlightsBlock highlights={plan.highlights} />
+              {/* Interactive Quiz Engine */}
+              {(activeTab === 'all' || activeTab === 'quiz') && (
+                <QuizEngine quiz={plan.quiz} />
               )}
 
             </div>
@@ -269,7 +215,7 @@ export default function App() {
 
       </main>
 
-      {/* Saved Sessions Drawer */}
+      {/* Saved Sessions Drawer (Z-Index 50) */}
       <SessionDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
@@ -279,9 +225,9 @@ export default function App() {
       />
 
       {/* Footer */}
-      <footer className="w-full border-t border-slate-800/60 bg-slate-950/80 py-4 px-4 text-center text-xs text-slate-500">
+      <footer className="relative z-10 w-full border-t border-slate-800/60 bg-[#06080f]/90 py-4 px-4 text-center text-xs text-slate-500">
         <p>
-          OdysseyAI Studio — Built for AI Frontend Internship Assignment • Zero-Crash Resilience System
+          StudySphere AI — Production Grade Educational Workspace • Zod .refine() Validated Engine
         </p>
       </footer>
 
