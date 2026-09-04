@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, MapPin, Calendar, Wallet, Zap, ArrowRight } from 'lucide-react';
+import { Sparkles, MapPin, Calendar, Wallet, Zap, ArrowRight, Globe as GlobeIcon } from 'lucide-react';
 import type { GenerateOptions } from '../services/aiService';
+import { Globe3D } from './Globe3D';
 
 interface TripInputFormProps {
   onGenerate: (options: GenerateOptions) => void;
@@ -37,6 +38,7 @@ export const TripInputForm: React.FC<TripInputFormProps> = ({ onGenerate, isLoad
   const [budgetLevel, setBudgetLevel] = useState<string>('Moderate');
   const [pace, setPace] = useState<'relaxed' | 'balanced' | 'fast-paced'>('balanced');
   const [useFallbackIfNoKey, setUseFallbackIfNoKey] = useState<boolean>(true);
+  const [show3DGlobe, setShow3DGlobe] = useState<boolean>(true);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +60,10 @@ export const TripInputForm: React.FC<TripInputFormProps> = ({ onGenerate, isLoad
     setPace(preset.pace as any);
   };
 
+  const handleGlobeSelectPrompt = (selectedPrompt: string) => {
+    setPrompt(selectedPrompt);
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       
@@ -65,7 +71,7 @@ export const TripInputForm: React.FC<TripInputFormProps> = ({ onGenerate, isLoad
       <div className="text-center space-y-3">
         <div className="inline-flex items-center space-x-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold text-indigo-300 backdrop-blur-md">
           <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
-          <span>Generative AI Structured Tool Studio</span>
+          <span>Generative AI 3D Interactive Tool Studio</span>
         </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
           Turn your travel ideas into an <br />
@@ -74,8 +80,28 @@ export const TripInputForm: React.FC<TripInputFormProps> = ({ onGenerate, isLoad
           </span>
         </h1>
         <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto">
-          Describe any trip in free-form natural language. Our AI outputs structured JSON rendered into interactive timeline blocks, budget charts, and packing checklists.
+          Describe any trip in natural language or interact with our 3D Holographic World Globe. Our AI outputs structured JSON rendered into interactive timeline blocks, budget charts, and packing checklists.
         </p>
+      </div>
+
+      {/* 3D Holographic Globe Feature Section */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center space-x-1.5">
+            <GlobeIcon className="h-4 w-4" />
+            <span>Interactive 3D Holographic Mission Control Globe</span>
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setShow3DGlobe(!show3DGlobe)}
+            className="text-[11px] font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            {show3DGlobe ? 'Minimize 3D Globe' : 'Show 3D Globe'}
+          </button>
+        </div>
+
+        {show3DGlobe && <Globe3D onSelectPrompt={handleGlobeSelectPrompt} />}
       </div>
 
       {/* Main Form Container */}
