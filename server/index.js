@@ -231,6 +231,7 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 OdysseyAI Server running on port ${PORT}`);
+// Bind to 0.0.0.0 host for Render container compatibility
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 OdysseyAI Server running on port ${PORT} bound to 0.0.0.0`);
 });
